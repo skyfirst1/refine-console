@@ -14,7 +14,7 @@
     "import-expert-demo": "tsx scripts/import-expert-demo.ts",
     "harness-multi-case": "tsx scripts/run-harness-multi-case.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test test/*.test.ts",
+    "test": "node --import tsx --test --test-concurrency=4 test/*.test.ts",
     "test:web": "node --test web/*.test.mjs",
     "check": "npm run typecheck && npm test && npm run test:web",
     "check:release": "node scripts/check-release.mjs",
