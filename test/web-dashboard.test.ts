@@ -56,7 +56,11 @@ test("dashboard serves the local frontend and an empty session list", async () =
     const page = await fetch(dashboard.url);
     assert.equal(page.status, 200);
     const pageHtml = await page.text();
-    assert.match(pageHtml, /Refine Console/);
+    assert.match(pageHtml, /<title>loom<\/title>/);
+    assert.match(pageHtml, /aria-label="loom 工作区"/);
+    assert.match(pageHtml, /<svg class="brand-mark"/);
+    assert.match(pageHtml, /rel="icon" type="image\/svg\+xml"/);
+    assert.doesNotMatch(pageHtml, /Refine Console/);
     assert.doesNotMatch(pageHtml, /长文档专注模式/);
     const response = await fetch(`${dashboard.url}/api/sessions`);
     assert.equal(response.status, 200);

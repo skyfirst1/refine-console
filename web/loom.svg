@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-labelledby="title">
+  <title id="title">loom</title>
+  <rect width="48" height="48" rx="12" fill="#fafafa"/>
+  <path d="M11 10v22a6 6 0 0 0 6 6h21M21 10v14a4 4 0 0 0 4 4h13M31 10v6a2 2 0 0 0 2 2h5" fill="none" stroke="#202124" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

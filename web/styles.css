@@ -28,10 +28,10 @@ button:disabled { cursor: wait; opacity: .55; }
 .app-shell { min-height: 100vh; display: grid; grid-template-columns: 230px minmax(0, 1fr); }
 .sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; padding: 28px 18px 22px; background: var(--nav); color: #eef4f0; }
 .brand { display: flex; align-items: center; gap: 12px; padding: 0 10px 28px; color: inherit; text-decoration: none; }
-.brand-mark { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid #7aa28c; border-radius: 12px; color: #bce1cb; font: 700 23px Georgia, serif; }
+.brand-mark { display: block; flex: 0 0 38px; width: 38px; height: 38px; color: var(--ink); }
 .brand strong, .brand small, .sidebar-foot strong, .sidebar-foot small { display: block; }
-.brand strong { letter-spacing: -.02em; }
-.brand small { margin-top: 2px; color: #8fa49a; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
+.brand strong { font-size: 27px; font-weight: 650; line-height: 1.1; letter-spacing: -.055em; }
+.brand small { margin-top: 5px; color: var(--muted); font-size: 10px; letter-spacing: .035em; }
 .nav { display: grid; gap: 7px; }
 .nav-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 12px; border: 0; border-radius: 10px; background: transparent; color: #aebdb5; text-align: left; }
 .nav-item:hover, .nav-item.active { background: var(--nav-soft); color: #fff; }
@@ -327,7 +327,6 @@ button:disabled { cursor: wait; opacity: .55; }
 
 /* Shared quiet surfaces across sessions, plugins, Skills and historical demos. */
 .sidebar { background: var(--nav); color: var(--ink); border-right: 1px solid var(--line); padding-top: 24px; }
-.brand-mark { border-color: #d9dade; color: var(--ink); border-radius: 9px; }
 .brand small, .sidebar-foot small, .system-card-head, .system-card small { color: var(--muted); }
 .nav-item { color: #5d6066; border-radius: 8px; }
 .nav-item:hover, .nav-item.active { color: var(--ink); background: #ededee; }

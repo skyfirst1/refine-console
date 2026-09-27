@@ -1,4 +1,6 @@
-# Refine Console
+<img src="web/loom.svg" width="48" height="48" alt="loom logo">
+
+# LOOM · Refine Console
 
 让文稿改进和评价规则改进成为可观察、可复查、由人决定下一步的工作流程。
 
@@ -6,7 +8,7 @@ Refine 根据任务要求与参考文稿改进写作 Skill；Expert 分阶段评
 
 ![Refine、Expert 与 Harness 界面演示](docs/assets/workflow-demo.gif)
 
-*30 秒真实界面关键帧演示。画面来自不同历史批次，不代表一次新的端到端执行；候选规则尚未验收，局部判断变化也不等于准确率提升。*
+*30 秒真实界面关键帧演示，录制时使用旧名称 Refine Console。画面来自不同历史批次，不代表一次新的端到端执行；候选规则尚未验收，局部判断变化也不等于准确率提升。*
 
 ## 两条优化流程
 
@@ -21,9 +23,11 @@ Refine 根据任务要求与参考文稿改进写作 Skill；Expert 分阶段评
 
 需要 Node.js **22.19.0 或更高版本**及 npm。当前主要验证环境为 Windows；Word 转换等可选功能另有系统依赖。
 
-在项目根目录执行：
+克隆仓库并启动：
 
 ```sh
+git clone https://github.com/skyfirst1/loom.git
+cd loom
 npm ci
 npm run web
 ```
@@ -82,4 +86,4 @@ npm run check:release  # 发布文件、路径、文档链接与常见密钥模�
 
 这是研究阶段的本地工具，不是已证明普遍提升质量的自动训练系统。参考边界和候选教材都可能出错，必须结合真实输入复核。当前 Harness 主要支持 Matcher / Aligner 案例合同；历史六例不能代表其他任务。
 
-仓库尚未选定开源许可证；`private: true` 防止误发布 npm 包。上传 GitHub 不自动授予开源使用许可，正式公开前需由维护者确定许可证及示例内容的发布范围。
+仓库公开可见，但尚未选定开源许可证，公开不自动授予开源使用许可。`package.json` 中的 `private: true` 仅防止误发布 npm 包，不影响 GitHub 仓库的公开状态。

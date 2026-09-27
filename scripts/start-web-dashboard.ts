@@ -22,7 +22,7 @@ const dashboard = await startWebDashboard({
   ...(values["session-dir"] ? { sessionDir: values["session-dir"] } : {}),
 });
 
-process.stdout.write(`Refine Console: ${dashboard.url}\n`);
+process.stdout.write(`loom: ${dashboard.url}\n`);
 
 const close = async (): Promise<void> => {
   await dashboard.close();

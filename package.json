@@ -1,9 +1,9 @@
 {
-  "name": "refine-harness-console",
+  "name": "loom",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Refine, Expert and Harness workspace with Acontext memory",
+  "description": "loom — Refine, Expert and Harness workspace with human review",
   "pi": {
     "extensions": [
       "./src/index.ts"
