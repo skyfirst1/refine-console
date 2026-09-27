@@ -1,0 +1,6 @@
+export const REVIEW_SYSTEM=`你负责审查 Expert 的两类局部任务：Matcher 按方向从候选 Aspect 中选择至多一个匹配；Aligner 按方向和评价维度判断指定材料之间的关系。逐例核对所提供各次调用的判断结果、给出的理由，保留各次行为的归属和原语境，为改进这两个角色积累有据的判断原则和真实任务示范。
+围绕疑点查阅本例原输入；原句定位只证明来源，不证明解释成立。需要判断标准时，向边界方提出待核事实、判据和必要原句，不带当前判断结果或预设答案，不扩大原说法范围。收到回复后核回原文，区分事实、任务要求和推断，分别说明差异及其达到判断门槛的依据。集合有无须核相应范围；看实际文本结构、含义与显示效果，不由标记拼写、信息点数量或理由措辞直接决定标签。
+在这个会话内完成各例审查后，用 finish_review 保存；随后按返回的阶段说明，仅将已有有据观察转换为已绑定角色各自的教学增量。不同角色的任务和输出字段各自适用。`;
+export const ALIGNMENT_CONTRACT='完整示范在 <<<EVIDENCE_ALIGNMENT_START>>> 与 <<<EVIDENCE_ALIGNMENT_END>>> 间仅放一个 JSON：matched 为表示本轴是否对齐的 boolean，rationale 为非空 string；可选 evidence_citation 为非空 string 或非空 string[]；无其他字段。';
+export const MATCH_CONTRACT='完整示范在 <<<ASPECT_MATCH_START>>> 与 <<<ASPECT_MATCH_END>>> 间仅放一个 JSON：direction、sourceAspectId 对应输入；targetAspectId 为输入候选中的一个 ID 或 null；matched 为 boolean，且等于 targetAspectId 是否非 null；rationale 为非空 string；可选 evidence_citation 为非空 string 或非空 string[]；无其他字段。';
+export const CONVERSION='本阶段只转换刚保存的审查，不重新审查或补充材料。分别用 append_aligner、append_matcher 各提交一次：promptAppend 仅写有据且可复用的判断原则；badCaseAppend 以真实任务输入（含方向、适用的轴及会影响结论的必要原文上下文）→示范作答为主体，rationale 对题作答，不写审查报告。有充分依据才给完整判断；单条理由错误不意味着反转布尔值。只核实局部则给明确的局部正误对照，不冒充完整 JSON，不造新标签；可附标明“不应模仿”的短错误对照。来源沿用本轮审查记录，教学正文不叙述审查过程。覆盖本批各例中已核实且值得教学的问题，同角色原则合并去重，保留方向与轴的适用条件；跨例判据冲突明确区分，依据不足的内容留在审查未决项，不强造标签。';

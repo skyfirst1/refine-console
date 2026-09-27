@@ -1,0 +1,52 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { runHarnessEvaluationSkillExtraction } from "../src/harness-evaluation-skill-extraction.js";
+import { runExpertBoundaryFindingAudit } from "../src/harness-audit-skill.js";
+const input = { taskId:"task", description:"Actual task", userBoundary:"Explicit authority", migrationGoal:"Unseen same-family tasks" };
+const prose = "# Evaluation method\n\nAllow task-dependent changes. Preserve supported requirements. Distinguish unknown authority.\n";
+test("prose Skill has independent sessions, semantic cache, exact downstream delivery and failure reuse", async () => {
+ const dir=await mkdtemp(join(tmpdir(),"evaluation-skill-"));const options:any={cwd:dir,cacheDirectory:join(dir,"cache"),model:"fixture",provider:"fixture"};let calls=0;
+ const seen:any[]=[];const runner=async(o:any)=>{calls++;seen.push(o);return {finalText:prose,stopReason:"stop"} as any;};
+ const first=await runHarnessEvaluationSkillExtraction(input,options,runner);
+ assert.equal(await readFile(join(first.directory,"SKILL.md"),"utf8"),prose);
+ assert.equal(JSON.parse(await readFile(join(first.directory,"state.json"),"utf8")).binding.schema,"evaluation-skill-prose-v1");
+ assert.equal((await runHarnessEvaluationSkillExtraction(input,options,runner)).reused,true);assert.equal(calls,1);
+ const changed=await runHarnessEvaluationSkillExtraction({...input,description:"Changed task"},options,runner);assert.notEqual(first.key,changed.key);assert.notEqual(first.sessionId,changed.sessionId);
+ await runHarnessEvaluationSkillExtraction(input,{...options,model:"other"},runner);assert.equal(calls,3);assert.equal(seen[0].tools,"none");assert.equal(seen[0].session.id,first.sessionId);
+ let downstream:any;await assert.rejects(runExpertBoundaryFindingAudit({cwd:dir,prompt:"Actual trace",taskPurposes:[{taskId:"task",content:"Explicit authority",style:null,authority:["Description"]}],generatedEvaluationSkills:[first.skill]} as any,async o=>{downstream=o;throw Error("downstream failed");}),/downstream failed/);
+ assert.ok(downstream.systemPrompt.includes(prose));assert.ok(downstream.systemPrompt.includes("Explicit authority"));assert.equal(downstream.prompt,"Actual trace");assert.equal(downstream.generatedEvaluationSkills,undefined);
+ assert.equal((await runHarnessEvaluationSkillExtraction(input,options,runner)).reused,true);assert.equal(calls,3);
+ await writeFile(join(first.directory,"SKILL.md"),"changed");await assert.rejects(runHarnessEvaluationSkillExtraction(input,options,runner),/integrity/);
+});
+test("opt-in local evidence method has an independent cache and preserves legacy generator",async()=>{
+ const dir=await mkdtemp(join(tmpdir(),"evaluation-local-method-"));const options:any={cwd:dir,cacheDirectory:dir};const contextual={...input,workflow:{version:"v1",content:"Actual stage inputs and outputs"}};let calls=0;const seen:any[]=[];const runner=async(o:any)=>{calls++;seen.push(o);return {finalText:prose,stopReason:"stop"} as any;};
+ const old=await runHarnessEvaluationSkillExtraction(contextual,options,runner);
+ const current=await runHarnessEvaluationSkillExtraction(contextual,{...options,evaluationMethod:"local-evidence-v1"},runner);
+ assert.notEqual(current.key,old.key);assert.notEqual(current.sessionId,old.sessionId);assert.deepEqual(JSON.parse(seen[1].prompt),contextual);assert.equal(seen[1].evaluationMethod,undefined);
+ assert.ok(seen[1].systemPrompt.includes("minimum available evidence"));assert.ok(!seen[0].systemPrompt.includes("minimum available evidence"));
+ assert.equal((await runHarnessEvaluationSkillExtraction(contextual,{...options,evaluationMethod:"local-evidence-v1"},runner)).key,current.key);assert.equal((await runHarnessEvaluationSkillExtraction(contextual,options,runner)).key,old.key);assert.equal(calls,2);
+ await assert.rejects(runHarnessEvaluationSkillExtraction(input,{...options,evaluationMethod:"local-evidence-v1"},runner),/requires a versioned workflow/);
+ const changed=await runHarnessEvaluationSkillExtraction({...contextual,description:"Different actual description"},{...options,evaluationMethod:"local-evidence-v1"},runner);assert.notEqual(changed.key,current.key);
+});
+test("failed generation is retained without resampling and accepts prose without wrapper fields",async()=>{
+ const dir=await mkdtemp(join(tmpdir(),"evaluation-skill-fail-"));const options:any={cwd:dir,cacheDirectory:dir};let calls=0;
+ const bad=async()=>{calls++;return {finalText:"Partial prose",stopReason:"length"} as any;};
+ await assert.rejects(runHarnessEvaluationSkillExtraction(input,options,bad),/Incomplete/);await assert.rejects(runHarnessEvaluationSkillExtraction(input,options,bad),/no automatic regeneration/);assert.equal(calls,1);
+ const ok=await runHarnessEvaluationSkillExtraction({...input,userBoundary:"New authority"},options,async()=>({finalText:prose,stopReason:"stop"}) as any);assert.equal(ok.skill.content,prose);
+});
+test("workflow text and version bind cache and reach the independent generator without altering legacy input",async()=>{
+ const dir=await mkdtemp(join(tmpdir(),"evaluation-workflow-"));const options:any={cwd:dir,cacheDirectory:dir};let calls=0;const seen:any[]=[];
+ const runner=async(o:any)=>{calls++;seen.push(o);return {finalText:prose,stopReason:"stop"} as any;};
+ const legacy=await runHarnessEvaluationSkillExtraction(input,options,runner);
+ const contextual={...input,workflow:{version:"workflow-v1",content:"Extractor represents; Matcher selects concepts; Aligner judges task relations; Reducer calculates."}};
+ const one=await runHarnessEvaluationSkillExtraction(contextual,options,runner);assert.notEqual(one.key,legacy.key);assert.notEqual(one.sessionId,legacy.sessionId);
+ assert.deepEqual(JSON.parse(seen[1].prompt),contextual);assert.ok(seen[1].systemPrompt.includes("Harness auditing Expert behavior"));
+ assert.equal((await runHarnessEvaluationSkillExtraction(contextual,options,runner)).reused,true);
+ const changed=await runHarnessEvaluationSkillExtraction({...contextual,workflow:{...contextual.workflow,content:"Updated process availability"}},options,runner);assert.notEqual(changed.key,one.key);
+ const version=await runHarnessEvaluationSkillExtraction({...contextual,workflow:{...contextual.workflow,version:"workflow-v2"}},options,runner);assert.notEqual(version.key,one.key);
+ await assert.rejects(runHarnessEvaluationSkillExtraction({...contextual,workflow:{version:"",content:"text"}},options,runner),/Incomplete workflow/);assert.equal(calls,4);
+ assert.equal((await runHarnessEvaluationSkillExtraction(input,options,runner)).key,legacy.key);assert.equal(calls,4);
+});

@@ -1,0 +1,57 @@
+{
+  "name": "refine-harness-console",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Refine, Expert and Harness workspace with Acontext memory",
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "scripts": {
+    "expert-demo": "tsx scripts/start-expert-demo.ts",
+    "import-expert-demo": "tsx scripts/import-expert-demo.ts",
+    "harness-multi-case": "tsx scripts/run-harness-multi-case.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts",
+    "test:web": "node --test web/*.test.mjs",
+    "check": "npm run typecheck && npm test && npm run test:web",
+    "check:release": "node scripts/check-release.mjs",
+    "acontext-service": "tsx scripts/manage-acontext-service.ts",
+    "import-codex": "tsx scripts/import-codex-session.ts",
+    "learn-session": "tsx scripts/learn-session.ts",
+    "train-codex": "tsx scripts/train-codex-session.ts",
+    "sync-skills": "tsx scripts/sync-skills.ts",
+    "verify-doc-quality": "tsx scripts/verify-document-quality.ts",
+    "find-codex-document-sessions": "tsx scripts/find-codex-document-sessions.ts",
+    "evaluate-refine-diagnosis": "tsx scripts/evaluate-refine-diagnosis-capability.ts",
+    "audit-refine-behavior": "tsx scripts/run-refine-behavior-audit.ts",
+    "run-harness-learning-experiment": "tsx scripts/run-harness-learning-experiment.ts",
+    "project-codex-session": "tsx scripts/project-codex-session.ts",
+    "inspect-production-session": "tsx scripts/inspect-production-session.ts",
+    "run-production-session": "tsx scripts/run-production-session.ts",
+    "web": "node --env-file-if-exists=.env --import tsx scripts/start-web-dashboard.ts"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "dependencies": {
+    "@acontext/acontext": "0.1.21",
+    "@arizeai/phoenix-otel": "^2.2.0",
+    "jsonrepair": "^3.15.0",
+    "mammoth": "^1.12.0",
+    "pdf-parse": "^2.4.5",
+    "typebox": "1.3.7",
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.84.2 <0.85.0"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.84.2",
+    "@types/node": "22.19.19",
+    "tsx": "4.22.1",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,22 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,writeFile,mkdir,readFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join,resolve} from 'node:path';
+import {createServer} from 'node:http';
+import {createPaidCardExecutor} from '../src/expert-card-paid-executor.js';
+import {createExpertCardCopyStore,ALIGNER_ROLE} from '../src/expert-card-copy-store.js';
+test('shared paid executor preserves request, settles parse failure, continues batch and permits successor without rerun',{timeout:90000},async()=>{
+ const root=await mkdtemp(join(tmpdir(),'paid-copy-offline-')),requests:any[]=[];
+ const server=createServer(async(req,res)=>{let raw='';for await(const b of req)raw+=b;requests.push(JSON.parse(raw));const text=requests.length===2?'invalid model output':'{"matched":true,"rationale":"fixture evidence"}';res.writeHead(200,{'content-type':'text/event-stream'});res.write(`data: ${JSON.stringify({id:'f',object:'chat.completion.chunk',model:'copy-fake',choices:[{index:0,delta:{role:'assistant',content:text},finish_reason:null}]})}\n\n`);res.end(`data: ${JSON.stringify({id:'f',object:'chat.completion.chunk',model:'copy-fake',choices:[{index:0,delta:{},finish_reason:'stop'}],usage:{prompt_tokens:2,completion_tokens:2,total_tokens:4}})}\n\ndata: [DONE]\n\n`);});
+ await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));const origin=`http://127.0.0.1:${(server.address() as any).port}`,provider=join(root,'provider.ts'),guard=join(root,'guard.ts'),budget=join(root,'budget');await mkdir(budget);
+ await writeFile(join(budget,'provider-budget.json'),JSON.stringify({requests:0,inFlight:{},usage:{costUsd:0}}));await writeFile(join(budget,'provider-events.jsonl'),'');
+ await writeFile(provider,`export default function(pi){pi.registerProvider('copy-offline',{baseUrl:'${origin}/v1',apiKey:'offline',api:'openai-completions',models:[{id:'copy-fake',name:'Fake',reasoning:false,input:['text'],contextWindow:100000,maxTokens:1000,cost:{input:0,output:0,cacheRead:0,cacheWrite:0},compat:{supportsDeveloperRole:false,supportsStore:false,maxTokensField:'max_tokens'}}]});}`);
+ await writeFile(guard,`import fs from 'node:fs';export function guard(pi,root,phase){let id;const p=root+'/provider-budget.json',e=root+'/provider-events.jsonl';pi.on('before_provider_request',()=>{const s=JSON.parse(fs.readFileSync(p));id=++s.requests;s.inFlight[id]={cost:0};fs.writeFileSync(p,JSON.stringify(s));fs.appendFileSync(e,JSON.stringify({type:'admit',id,phase})+'\\n');});pi.on('message_end',e1=>{if(e1.message.role==='assistant'){const s=JSON.parse(fs.readFileSync(p));delete s.inFlight[id];fs.writeFileSync(p,JSON.stringify(s));fs.appendFileSync(e,JSON.stringify({type:'settled',id,phase,actual:{costUsd:0,totalTokens:4}})+'\\n');}});}`);
+ const options={cwd:resolve('.'),timeoutMs:30000,provider:'copy-offline',model:'copy-fake',maxOutputTokens:1000,thinking:'off',systemPrompt:'ORIGINAL\nCONTRACT',prompt:'frozen pair'},payload={model:'copy-fake',messages:[{role:'system',content:options.systemPrompt},{role:'user',content:[{type:'text',text:options.prompt}]}],stream:true,stream_options:{include_usage:true},max_tokens:1000};
+ const op=join(root,'options.json'),rp=join(root,'request.json');await writeFile(op,JSON.stringify(options));await writeFile(rp,JSON.stringify(payload));
+ const executor=createPaidCardExecutor({root,sourcePrompt:'ORIGINAL',baselineOptionsPath:op,baselineRequestPath:rp,budgetRoot:budget,budgetGuardPath:guard,providerExtension:provider,providerOrigin:origin,phasePrefix:'offline'});
+ const store=createExpertCardCopyStore(join(root,'copies'),{roleId:ALIGNER_ROLE,systemPrompt:'ORIGINAL'},executor.execute,{maxUpdates:2,requirePriorBatch:true,executionBinding:'fixture',receipt:executor.receipt});
+ try{await store.card({action:'create',roleId:ALIGNER_ROLE});const batch=await store.sample({roleId:ALIGNER_ROLE,version:'v0'});assert.deepEqual(batch.map(r=>r.status),['settled-success','settled-parse-failure','settled-success']);assert.equal(requests.length,3);for(const p of requests)assert.deepEqual(p,payload);await store.sample({roleId:ALIGNER_ROLE,version:'v0'});assert.equal(requests.length,3);const v1=await store.card({action:'update',roleId:ALIGNER_ROLE,parentVersion:'v0',systemPrompt:'NEW',reason:'fixture'});assert.equal(v1.version,'v1');assert.equal(JSON.parse(await readFile(join(budget,'provider-budget.json'),'utf8')).usage.costUsd,0);
+ }finally{server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));}
+});

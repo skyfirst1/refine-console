@@ -1,0 +1,11 @@
+# Non-secret defaults for the Pi-managed Acontext core.
+otel_enabled: true
+otel_sample_ratio: 1.0
+otel_service_name: acontext-core
+sandbox_type: disabled
+# Acontext's OpenAI completion adapter defaults each response to 1024 tokens.
+# Use its upstream completion-kwargs hook; OpenAI SDK extra_body is merged after
+# the adapter's explicit value, so the effective request limit is 8192.
+llm_openai_completion_kwargs:
+  extra_body:
+    max_tokens: 8192

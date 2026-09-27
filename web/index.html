@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="管理 Agent 插件、浏览历史会话并选择 Acontext 与 Refine 蒸馏区间。">
+    <title>Refine Console</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="#experts" aria-label="Refine Console 工作区">
+          <span class="brand-mark">R</span>
+          <span><strong>Refine</strong><small>Console</small></span>
+        </a>
+        <nav class="nav" aria-label="主导航">
+          <button class="nav-item active" data-view="experts"><span class="nav-glyph">W</span><span>工作流程</span></button>
+          <button class="nav-item" data-view="history"><span class="nav-glyph">H</span><span>历史记录</span></button>
+          <button class="nav-item" data-view="sessions"><span class="nav-glyph">S</span><span>会话</span></button>
+          <button class="nav-item" data-view="plugins"><span class="nav-glyph">P</span><span>插件</span></button>
+          <button class="nav-item" data-view="skills"><span class="nav-glyph">K</span><span>Skills</span></button>
+        </nav>
+        <section class="system-card" aria-label="记忆插件状态">
+          <div class="system-card-head"><span>记忆插件</span><span id="memory-dot" class="status-dot"></span></div>
+          <strong id="memory-title">正在检查…</strong>
+          <small id="memory-detail">Acontext 自动接入，不影响 Coding Agent</small>
+        </section>
+        <div class="sidebar-foot">
+          <span class="avatar">P</span>
+          <span><strong>本地工作台</strong><small id="project-name">载入中…</small></span>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div><span class="eyebrow">REFINE + EXPERT + HARNESS</span><h1 id="page-title">会话</h1></div>
+          <div class="topbar-actions">
+            <span id="acontext-badge" class="badge neutral">Acontext 检查中</span>
+            <button id="new-session" class="primary-button" type="button">新建会话</button>
+            <button id="refresh-button" class="icon-button" type="button" aria-label="刷新当前页面" title="刷新">↻</button>
+          </div>
+        </header>
+
+        <section id="sessions-view" class="view active">
+          <div class="session-layout">
+            <section class="session-index panel">
+              <div class="panel-head">
+                <div><h2>历史会话</h2><p id="session-count">正在载入…</p></div>
+                <label class="scope-switch"><input id="scope-all" type="checkbox"><span>全部项目</span></label>
+              </div>
+              <label class="search-box"><span>⌕</span><input id="session-search" type="search" placeholder="搜索名称、内容或项目"></label>
+              <div id="session-list" class="session-list" aria-live="polite"></div>
+            </section>
+
+            <section id="session-empty" class="session-empty panel">
+              <span class="empty-mark">R</span>
+              <h2>开始使用 Agent Coding Agent</h2>
+              <p>选择历史会话继续工作，或新建会话。Acontext 记忆在后台作为插件补充。</p>
+              <button id="empty-new-session" class="primary-button" type="button">新建会话</button>
+            </section>
+
+            <section id="session-detail" class="session-detail panel hidden" aria-live="polite">
+              <div class="detail-head">
+                <div><span id="detail-kicker" class="eyebrow">SESSION</span><h2 id="detail-title">—</h2><p id="detail-meta">—</p></div>
+                <div class="detail-actions">
+                  <button id="auto-range" class="secondary-button" type="button">自动识别蒸馏区间</button>
+                  <button id="learn-acontext" class="secondary-button" type="button">Acontext 学习</button>
+                  <button id="run-refine" class="secondary-button accent-button" type="button">准备 Refine</button>
+                  <span id="dream-status" class="badge neutral">Auto-Dream 等待信号</span>
+                </div>
+              </div>
+              <details id="range-drawer" class="range-drawer">
+                <summary><span id="range-summary">尚未选择蒸馏区间</span><span>调整</span></summary>
+                <div id="auto-note" class="auto-note"></div>
+                <div class="range-grid">
+                  <section class="range-card acontext-range">
+                    <div><span class="range-dot"></span><strong>Acontext 学习区间</strong><small>只学习对话，不要求文档</small></div>
+                    <label>起点<select id="acontext-start"></select></label>
+                    <span class="range-arrow">→</span>
+                    <label>终点<select id="acontext-end"></select></label>
+                  </section>
+                  <section class="range-card refine-range">
+                    <div><span class="range-dot"></span><strong>Refine 提炼区间</strong><small>DOCX / PDF / MD / TXT</small></div>
+                    <label>起点<select id="refine-start"></select></label>
+                    <span class="range-arrow">→</span>
+                    <label>终点<select id="refine-end"></select></label>
+                  </section>
+                </div>
+                <div class="refine-contract-fields">
+                  <label>Gold 文档路径<input id="refine-gold-path" placeholder="例如 D:\\project\\gold.md"></label>
+                  <label>Active Skill 路径<input id="refine-active-skill-path" placeholder="例如 D:\\project\\SKILL.md"></label>
+                </div>
+                <button id="save-ranges" class="secondary-button" type="button">保存区间</button>
+              </details>
+              <div class="timeline-head"><h3>对话</h3><span id="entry-count"></span></div>
+              <div id="timeline" class="timeline"></div>
+              <footer class="composer-bar">
+                <div class="model-fields">
+                  <label>Provider<input id="provider-input" value="deepseek"></label>
+                  <label>Model<input id="model-input" value="deepseek-v4-flash"></label>
+                </div>
+                <div class="composer">
+                  <span id="selected-skill" class="selected-skill hidden"></span>
+                  <textarea id="chat-input" rows="1" placeholder="给 Agent Coding Agent 发送消息…" aria-label="消息"></textarea>
+                  <button id="stop-chat" class="secondary-button hidden" type="button">停止</button>
+                  <button id="send-chat" class="primary-button" type="button">发送</button>
+                </div>
+              </footer>
+            </section>
+          </div>
+        </section>
+
+        <section id="plugins-view" class="view">
+          <div class="plugins-header">
+            <div><h2>Agent 插件</h2><p>安装、更新或移除 Agent package。变更将在下次 Agent 启动或 reload 后生效。</p></div>
+            <button id="show-install" class="primary-button" type="button">安装插件</button>
+          </div>
+          <form id="install-form" class="install-form panel hidden">
+            <label>插件来源<input id="plugin-source" required placeholder="npm:@scope/package、git URL 或本地路径"></label>
+            <label>安装范围<select id="plugin-scope"><option value="project">当前项目</option><option value="user">所有项目</option></select></label>
+            <button class="primary-button" type="submit">确认安装</button>
+            <button id="cancel-install" class="secondary-button" type="button">取消</button>
+          </form>
+          <div id="plugin-list" class="plugin-grid" aria-live="polite"></div>
+          <section class="local-extension-section">
+            <div><h3>本地 Extension 路径</h3><p>这些路径由 Agent settings 直接加载，不经过 package 安装。</p></div>
+            <div id="local-extension-list" class="local-extension-list"></div>
+          </section>
+        </section>
+
+        <section id="skills-view" class="view">
+          <div class="plugins-header">
+            <div><h2>Skill 工作台</h2><p>查看 Acontext 同步到本机的 skills。编辑范围仅限 skill 目录内的文本配置与说明文件。</p></div>
+            <button id="open-skills-window" class="secondary-button" type="button">在独立窗口打开</button>
+          </div>
+          <div class="skills-layout">
+            <section class="panel skills-index">
+              <div class="panel-head"><div><h2>已获得 Skills</h2><p id="skill-count">正在载入…</p></div></div>
+              <div id="skill-list" class="skill-list"></div>
+            </section>
+            <section id="skill-empty" class="session-empty panel"><div><h2>选择一个 Skill</h2><p>可查看和修改 SKILL.md 及其引用文本，也可将它显式用于下一条 Agent 消息。</p></div></section>
+            <section id="skill-detail" class="panel skill-detail hidden">
+              <div class="skill-detail-head">
+                <div><span class="eyebrow">MANAGED SKILL</span><h2 id="skill-title">—</h2><p id="skill-description">—</p></div>
+                <button id="invoke-skill" class="primary-button" type="button">用于下一条消息</button>
+              </div>
+              <label class="skill-file-picker">文件<select id="skill-file"></select></label>
+              <textarea id="skill-editor" spellcheck="false" aria-label="Skill 文件内容"></textarea>
+              <div class="skill-editor-actions"><span id="skill-file-meta"></span><button id="save-skill" class="primary-button" type="button">保存修改</button></div>
+            </section>
+          </div>
+        </section>
+        <section id="experts-view" class="view" aria-label="Refine、Expert 与 Harness 工作区">
+          <div id="human-workbench"></div>
+        </section>
+        <section id="history-view" class="view" aria-label="历史 Refine、Expert 与 Harness 记录">
+          <div id="expert-workbench" aria-live="polite"><p class="empty-list">选择评价，查看判断依据与教学候选。</p></div>
+        </section>
+      </main>
+    </div>
+    <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

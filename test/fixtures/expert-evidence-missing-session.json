@@ -1,0 +1,10 @@
+{
+  "source": {
+    "requestId": 204,
+    "path": "<private-archive>/research-fewshot-live-loop-2026-09-20/session-availability-repair-204/original-failure.json",
+    "toolCallId": "call_01_mDLwv05bdXewg8pKSUt45748"
+  },
+  "arguments": {
+    "kind": "session"
+  }
+}

@@ -1,0 +1,33 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { runHarnessBoundaryExtraction } from "../src/harness-boundary-extraction.js";
+import { runExpertBoundaryFindingAudit } from "../src/harness-audit-skill.js";
+import type { AgentTaskOptions, AgentTaskResult } from "../src/agent-task-runner.js";
+const input = {taskId:"task",description:"Actual source",userBoundary:"User authority",migrationGoal:"Unseen tasks"};
+const table = {boundaries:["content","style"].map(axis=>({axis,comparisonUnit:"Task-conditioned relation",allowedVariation:["Permitted variation"],mustPreserve:"Declared invariant",authority:"Actual source",decidability:"Unknown when authority absent",provenance:"explicit-user",basis:"User instruction"}))};
+test("independent boundary sessions reuse semantic cache and invalidate changed tasks/models", async()=>{
+ const dir=await mkdtemp(join(tmpdir(),"boundary-cache-"));let calls=0;const seen:AgentTaskOptions[]=[];
+ const options={cwd:dir,cacheDirectory:join(dir,"cache"),model:"fixture",provider:"fixture",thinking:"off",maxOutputTokens:1000} as any;
+ const runner=async(o:AgentTaskOptions)=>{calls++;seen.push(o);return{finalText:JSON.stringify(table),stopReason:"stop"} as AgentTaskResult;};
+ const first=await runHarnessBoundaryExtraction(input,options,runner);
+ assert.equal((await runHarnessBoundaryExtraction(input,options,runner)).reused,true);assert.equal(calls,1);
+ const changed=await runHarnessBoundaryExtraction({...input,description:"Changed actual task"},options,runner);
+ assert.notEqual(changed.key,first.key);assert.notEqual(changed.sessionId,first.sessionId);
+ await runHarnessBoundaryExtraction(input,{...options,model:"other"},runner);assert.equal(calls,3);
+ assert.ok(seen[0]);assert.equal(seen[0].tools,"none");assert.equal(seen[0].session?.id,first.sessionId);assert.equal(JSON.parse(seen[0].prompt).description,input.description);
+ let downstream:AgentTaskOptions|undefined;
+ const purposes=[{taskId:"task",content:"Superior user authority",style:null,authority:["Description"]}];
+ await assert.rejects(runExpertBoundaryFindingAudit({cwd:dir,prompt:"PUBLIC TRACE",taskPurposes:purposes,generatedBoundaries:[first.table]} as any,async(o)=>{downstream=o;throw Error("downstream failed");}),/downstream failed/);
+ assert.ok(downstream?.systemPrompt?.includes("Superior user authority"));assert.ok(downstream?.systemPrompt?.includes(JSON.stringify([first.table])));assert.ok(downstream?.systemPrompt?.includes("fallible interpretation"));
+ assert.equal((await runHarnessBoundaryExtraction(input,options,runner)).reused,true);assert.equal(calls,3);
+ assert.equal(JSON.parse(await readFile(join(first.directory,"state.json"),"utf8")).status,"completed");
+});
+test("failed boundary session is retained and nonessential wrappers do not reject business table",async()=>{
+ const dir=await mkdtemp(join(tmpdir(),"boundary-failure-"));const options={cwd:dir,cacheDirectory:join(dir,"cache"),model:"fixture",provider:"fixture"} as any;let calls=0;
+ const bad=async()=>{calls++;return{finalText:"unparseable",stopReason:"stop"} as AgentTaskResult;};
+ await assert.rejects(runHarnessBoundaryExtraction(input,options,bad));await assert.rejects(runHarnessBoundaryExtraction(input,options,bad),/no automatic regeneration/);assert.equal(calls,1);
+ const valid=await runHarnessBoundaryExtraction({...input,description:"Different task"},options,async()=>({finalText:JSON.stringify(table),stopReason:"stop"} as AgentTaskResult));assert.equal(valid.table.boundaries.length,2);
+});

@@ -1,0 +1,12 @@
+{
+  "source": {
+    "requestId": 215,
+    "eventPath": "<private-archive>/research-fewshot-live-loop-2026-09-20/draft-completion-214/live/resumed-events.jsonl"
+  },
+  "event": {
+    "type": "tool_execution_start",
+    "toolCallId": "call_00_uxQzEfJmUkViHBIezz8x9625",
+    "toolName": "expert_trial",
+    "args": {"action":"sample","version":"v3"}
+  }
+}

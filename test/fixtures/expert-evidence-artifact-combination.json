@@ -1,0 +1,12 @@
+{
+  "source": {
+    "requestId": 207,
+    "path": "<private-archive>/research-fewshot-live-loop-2026-09-20/artifact-id-repair-207/original-failure.json",
+    "toolCallId": "call_00_gP82vVPHcu6hd6t5ExdM9649"
+  },
+  "arguments": {
+    "kind": "artifact",
+    "id": "task-evaluation-skill",
+    "fileName": "description"
+  }
+}

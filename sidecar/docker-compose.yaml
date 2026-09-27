@@ -1,0 +1,181 @@
+name: pi-acontext-sidecar
+
+# Optional local Acontext runtime. The dashboard, Jaeger,
+# sandbox and infrastructure admin ports are intentionally omitted.
+services:
+  pg:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DATABASE_USER:-acontext}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-helloworld}
+      POSTGRES_DB: ${DATABASE_NAME:-acontext}
+    volumes:
+      - ${DATABASE_LOCATION:-./data/pg}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-acontext} -d ${DATABASE_NAME:-acontext}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+
+  redis:
+    image: redis:7.4
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-helloworld}"]
+    volumes:
+      - ${REDIS_LOCATION:-./data/redis}:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-helloworld}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  rabbitmq:
+    image: rabbitmq:4-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-acontext}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-helloworld}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    volumes:
+      - ${RABBITMQ_LOCATION:-./data/rabbitmq}:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  object-store:
+    image: chrislusf/seaweedfs:4.02
+    restart: unless-stopped
+    user: root
+    environment:
+      WEED_S3_ACCESS_KEY: ${S3_ACCESS_KEY:-acontext}
+      WEED_S3_SECRET_KEY: ${S3_SECRET_KEY:-helloworld}
+    command: >-
+      server -s3 -s3.port=9000 -dir=/data -volume.max=100
+      -volume.publicUrl=http://object-store:9000 -ip=object-store
+      -ip.bind=0.0.0.0 -metricsPort=9324
+    volumes:
+      - ${S3_LOCATION:-./data/s3}:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:9000 >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  object-store-setup:
+    image: amazon/aws-cli:2.32.6
+    restart: "no"
+    depends_on:
+      object-store:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:-acontext}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-helloworld}
+      AWS_DEFAULT_REGION: ${S3_REGION:-auto}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >-
+        set -e; bucket=$${S3_BUCKET:-acontext-assets};
+        aws --endpoint-url=http://object-store:9000 s3 mb s3://$$bucket 2>/dev/null || true;
+        aws --endpoint-url=http://object-store:9000 s3 ls s3://$$bucket >/dev/null
+
+  core:
+    image: ${CORE_IMAGE:-ghcr.io/memodb-io/acontext-core:0.1.20}
+    restart: unless-stopped
+    environment:
+      LLM_API_KEY: ${LLM_API_KEY:?Set LLM_API_KEY in the sidecar .env file}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_SDK: ${LLM_SDK:-openai}
+      LLM_SIMPLE_MODEL: ${LLM_SIMPLE_MODEL:-gpt-4.1}
+      LLM_RESPONSE_TIMEOUT: ${LLM_RESPONSE_TIMEOUT:-180}
+      BLOCK_EMBEDDING_PROVIDER: ${BLOCK_EMBEDDING_PROVIDER:-openai}
+      BLOCK_EMBEDDING_MODEL: ${BLOCK_EMBEDDING_MODEL:-text-embedding-3-small}
+      BLOCK_EMBEDDING_DIM: ${BLOCK_EMBEDDING_DIM:-1536}
+      BLOCK_EMBEDDING_API_KEY: ${BLOCK_EMBEDDING_API_KEY:-${LLM_API_KEY}}
+      BLOCK_EMBEDDING_BASE_URL: ${BLOCK_EMBEDDING_BASE_URL:-${LLM_BASE_URL}}
+      DATABASE_URL: postgresql://${DATABASE_USER:-acontext}:${DATABASE_PASSWORD:-helloworld}@pg:5432/${DATABASE_NAME:-acontext}
+      MQ_URL: amqp://${RABBITMQ_USER:-acontext}:${RABBITMQ_PASSWORD:-helloworld}@rabbitmq:5672/
+      REDIS_URL: redis://:${REDIS_PASSWORD:-helloworld}@redis:6379
+      S3_ENDPOINT: http://object-store:9000
+      OTEL_ENABLED: "true"
+      OTEL_SDK_DISABLED: "false"
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${ACONTEXT_OTLP_GRPC_ENDPOINT:-http://host.docker.internal:14317}
+      OTEL_SAMPLE_RATIO: ${ACONTEXT_OTEL_SAMPLE_RATIO:-1.0}
+      OTEL_SERVICE_NAME: acontext-core
+      ACONTEXT_EVALUATION_TRACE_CONTENT: ${ACONTEXT_EVALUATION_TRACE_CONTENT:-false}
+      ACONTEXT_PHOENIX_PROJECT_NAME: ${ACONTEXT_PHOENIX_PROJECT_NAME:-acontext-core}
+      OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT: ${ACONTEXT_OTEL_ATTRIBUTE_COUNT_LIMIT:-4096}
+      SANDBOX_TYPE: disabled
+    volumes:
+      - ${ACONTEXT_SIDECAR_CONFIG_FILE:-./config.yaml}:/app/config.yaml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    depends_on:
+      pg:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      object-store:
+        condition: service_healthy
+      object-store-setup:
+        condition: service_completed_successfully
+
+  api:
+    image: ${API_IMAGE:-ghcr.io/memodb-io/acontext-api:0.1.39}
+    restart: unless-stopped
+    environment:
+      APP_ENV: release
+      ROOT_API_BEARER_TOKEN: ${ROOT_API_BEARER_TOKEN:?Set ROOT_API_BEARER_TOKEN in the sidecar .env file}
+      DATABASE_HOST: pg
+      DATABASE_USER: ${DATABASE_USER:-acontext}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-helloworld}
+      DATABASE_NAME: ${DATABASE_NAME:-acontext}
+      DATABASE_EXPORT_PORT: "5432"
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-helloworld}
+      REDIS_EXPORT_PORT: "6379"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-acontext}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-helloworld}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+      RABBITMQ_VHOST_ENCODED: ${RABBITMQ_VHOST_ENCODED:-%2F}
+      RABBITMQ_EXPORT_PORT: "5672"
+      S3_ENDPOINT: http://object-store:9000
+      S3_INTERNAL_ENDPOINT: http://object-store:9000
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-acontext}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-helloworld}
+      S3_BUCKET: ${S3_BUCKET:-acontext-assets}
+      CORE_BASE_URL: http://core:8000
+      APP_TELEMETRY_ENABLED: ${ACONTEXT_API_OTEL_ENABLED:-true}
+      APP_TELEMETRY_OTLPENDPOINT: ${ACONTEXT_OTLP_GRPC_ENDPOINT:-host.docker.internal:14317}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${ACONTEXT_OTLP_GRPC_ENDPOINT:-host.docker.internal:14317}
+      OTEL_RESOURCE_ATTRIBUTES: openinference.project.name=${ACONTEXT_API_PHOENIX_PROJECT_NAME:-acontext-transport}
+      OTEL_SDK_DISABLED: ${ACONTEXT_API_OTEL_SDK_DISABLED:-false}
+      APP_EXTERNALURL: http://localhost:${ACONTEXT_SIDECAR_API_PORT:-8029}
+    ports:
+      - "127.0.0.1:${ACONTEXT_SIDECAR_API_PORT:-8029}:8029"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8029/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    depends_on:
+      core:
+        condition: service_healthy
+      object-store-setup:
+        condition: service_completed_successfully
